@@ -5,12 +5,85 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.css">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/milligram/1.3.0/milligram.css">
+    <link rel="stylesheet" href="styles.css">
     <title>Document</title>
 </head>
 
 <body>
-    Lorem ipsum dolor sit, amet consectetur adipisicing elit. Beatae, eaque fugiat repellat, aspernatur voluptas fugit
-    temporibus, harum pariatur quod animi illum sint nam doloremque ipsam deserunt delectus. Molestias, corporis eos.
+    <header>
+        <div class="container">
+            <div class="row">
+                <div class="column">
+                    <h1>WebRTCDemo</h1>
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="row">
+            <div class="column">
+                <h2>Instruction</h2>
+                Lorem ipsum dolor sit amet, consectetur adipisicing elit. Rem ex voluptates odio vero porro ipsam
+                explicabo cumque eius officia consequuntur, obcaecati reprehenderit aspernatur officiis sapiente dolorum
+                placeat eum nesciunt asperiores.
+            </div>
+        </div>
+        <div class="row">
+            <div class="column">
+                <h3>Local:</h3>
+                <fieldset>
+                    <label for="nameField">Name</label>
+                    <input type="text" placeholder="CJ Patoilo" id="nameField">
+                    <label for="ageRangeField">Age Range</label>
+                    <select id="ageRangeField">
+                        <option value="0-13">0-13</option>
+                        <option value="14-17">14-17</option>
+                        <option value="18-23">18-23</option>
+                        <option value="24+">24+</option>
+                    </select>
+                    <label for="commentField">Comment</label>
+                    <textarea placeholder="Hi CJ …" id="commentField"></textarea>
+                    <div class="float-right">
+                        <input type="checkbox" id="confirmField">
+                        <label class="label-inline" for="confirmField">Send a copy to yourself</label>
+                    </div>
+                    <input class="button-primary" type="submit" value="Connect">
+                    <input class="button-primary" type="submit" value="Send">
+                    <input class="button-primary" type="submit" value="Send">
+                </fieldset>
+            </div>
+            <div class="column">
+                <h3>Remote:</h3>
+                <fieldset>
+                    <label for="nameField">Name</label>
+                    <input type="text" placeholder="CJ Patoilo" id="nameField">
+                    <label for="ageRangeField">Age Range</label>
+                    <select id="ageRangeField">
+                        <option value="0-13">0-13</option>
+                        <option value="14-17">14-17</option>
+                        <option value="18-23">18-23</option>
+                        <option value="24+">24+</option>
+                    </select>
+                    <label for="commentField">Comment</label>
+                    <textarea placeholder="Hi CJ …" id="commentField"></textarea>
+                    <div class="float-right">
+                        <input type="checkbox" id="confirmField">
+                        <label class="label-inline" for="confirmField">Send a copy to yourself</label>
+                    </div>
+                    <input class="button-primary" type="submit" value="Send">
+                    <input class="button-primary" type="submit" value="Send">
+                    <input class="button-primary" type="submit" value="Send">
+                </fieldset>
+            </div>
+        </div>
+
+    </div>
+    <script src="index.js"></script>
 </body>
 
 </html>
