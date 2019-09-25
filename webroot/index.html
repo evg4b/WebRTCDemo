@@ -29,17 +29,18 @@
             <div class="column">
                 <h3>Local:</h3>
                 <fieldset>
-                    <input id="start" class="button-primary" type="submit" value="Start">
+                    <fieldset>
+                        <label for="remoteSdp">SDP</label>
+                        <textarea placeholder="…" id="localSdp" rows="12"></textarea>
+                        <input id="start" class="button-primary" type="submit" value="Create Offer">
+                    </fieldset>
                 </fieldset>
             </div>
             <div class="column">
                 <h3>Remote:</h3>
                 <fieldset>
-                    <label for="remoteType">Type</label>
-                    <input type="text" placeholder="Type" id="remoteType">
                     <label for="remoteSdp">SDP</label>
                     <textarea placeholder="…" id="remoteSdp" rows="12"></textarea>
-                    <input id="setRemote" class="button-primary" type="submit" value="Set Remote">
                 </fieldset>
             </div>
         </div>
