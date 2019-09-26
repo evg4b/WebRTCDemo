@@ -1,4 +1,3 @@
-const currentId = `f${(~~(Math.random() * 1e8)).toString(16)}`;
 const socked = new WebSocket("ws://172.20.40.91:8010/ws")
 const startBtn = document.getElementById('start');
 const localSdp = document.getElementById('localSdp');
@@ -33,23 +32,14 @@ socked.onopen = () => {
 }
 
 
-
-
 let ddd = false;
 socked.onerror = (event) => {
     console.log("ERROR", event)
 }
 
-socked.onmessage = (event) => {
+socked.onmessage = async (event) => {
     console.log(event);
-    const { id, type, data } = JSON.parse(event.data);
-    if (id != currentId) {
-        handle(type, data)
-    }
-}
-
-
-async function handle(type, data) {
+    const { type, data } = JSON.parse(event.data);
     switch (type) {
         case 'offer':
             remoteSdp.value = data.sdp;
@@ -70,6 +60,7 @@ async function handle(type, data) {
             break;
     }
 }
+
 
 var ch = connection.createDataChannel('demo');
 
@@ -93,5 +84,7 @@ console.log(connection)
 console.log(ch)
 
 function sendMessage(type, data) {
-    socked.send(JSON.stringify({ type, data, id: currentId }))
+    socked.send(JSON.stringify({ type, data }))
 }
+
+connection.onconnectionstatechange = (event) => console.log(connection.connectionState)
