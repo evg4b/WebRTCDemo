@@ -1,13 +1,14 @@
 // html elements
-const startBtn = document.getElementById('start');
 const localSdp = document.getElementById('localSdp');
 const remoteSdp = document.getElementById('remoteSdp');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
 const connectionState = document.getElementById('connection-state');
-const startButton = document.getElementById('startButton');
 const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
+
+// define helper functions
+const trace = console.log;
 
 // web sockets connections
 const host = document.location.host;
@@ -43,35 +44,36 @@ socket.addEventListener('open', () => {
 });
 
 socket.addEventListener('error', (event) => {
-    trace(`WebSocket connection returns error`);
+    trace(`WebSocket connection with ${host} returns error`);
     console.error(event);
 });
 
-socket.addEventListener('message', async (event) => {
+socket.addEventListener('message', (event) => {
     try {
         const { type, data } = JSON.parse(event.data);
-        trace(`From web socket was given '${type}' message: ${data}`)
+        trace(`From web socket was given '${type}' message: ${data}`);
         switch (type) {
-            case 'offer':
-                return receiveOffer(data);
-            case 'answer':
-                return receiveAnswer(data);
-            case 'icecandidate':
-                return receiveIceCandidate(data)
+            case 'offer': return receiveOffer(data);
+            case 'answer': return receiveAnswer(data);
+            case 'icecandidate': return receiveIceCandidate(data);
         }
-    } catch (e) {
-        trace(`Error parse ${event.data}`)
+    } catch (error) {
+        trace(`Error parse ${event.data}`);
+        console.error(error);
     }
 });
 
 const receiveOffer = async (offer) => {
     connection.setRemoteDescription(offer);
-    const answer = await connection.createAnswer()
+    const answer = await connection.createAnswer();
     connection.setLocalDescription(answer);
+    sendMessage('answer', answer);
 
     remoteSdp.value = offer.sdp;
     localSdp.innerText = answer.sdp;
-    sendMessage('answer', answer)
+    if (!callButton.disabled) {
+        callButton.innerText = "Answer"
+    }
 }
 
 const receiveAnswer = async (answer) => {
@@ -85,60 +87,37 @@ const receiveIceCandidate = async (iceCandidate) => {
     trace(`Added ICE candidate:\n` + `${newIceCandidate.candidate}.`);
 }
 
-// Define action buttons.
-// Set up initial action buttons status: disable call and hangup.
-// callButton.disabled = true;
-hangupButton.disabled = true;
-
-// Add click event handlers for buttons.
-startButton.addEventListener('click', startAction);
 callButton.addEventListener('click', callAction);
-// hangupButton.addEventListener('click', hangupAction);
-
-const mediaStreamConstraints = {
-    video: true,
-};
-
-// Handles start button action: creates local MediaStream.
-function startAction() {
-    startButton.disabled = true;
-    if (navigator.mediaDevices) {
-        navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
-            .then(gotLocalMediaStream)
-            .catch(handleLocalMediaStreamError);
-    }
-    trace('Requesting local stream.');
-}
-
-const offerOptions = {
-    offerToReceiveVideo: 1,
-};
 
 var localStream = null;
+(async () => {
+    hangupButton.disabled = true;
+    try {
+        if (navigator.mediaDevices) {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            localVideo.srcObject = localStream;
+            trace('Received local stream.');
+            const videoTracks = localStream.getVideoTracks();
+            const audioTracks = localStream.getAudioTracks();
+            if (videoTracks.length > 0) {
+                trace(`Using video device: ${videoTracks[0].label}.`);
+            }
+            if (audioTracks.length > 0) {
+                trace(`Using audio device: ${audioTracks[0].label}.`);
+            }
+            callButton.disabled = false;
+        }
+    } catch (error) {
+        trace('Reject local stream.');
+    }
+})();
 
 // Handles call button action: creates peer connection.
 function callAction() {
     callButton.disabled = true;
     hangupButton.disabled = false;
 
-    console.trace('Starting call.')
-    startTime = window.performance.now();
-
-    let videoTracks = [];
-    let audioTracks = [];
-
-    if (localStream) {
-        // Get local media stream tracks.
-        videoTracks = localStream.getVideoTracks();
-        audioTracks = localStream.getAudioTracks();
-    }
-
-    if (videoTracks.length > 0) {
-        trace(`Using video device: ${videoTracks[0].label}.`);
-    }
-    if (audioTracks.length > 0) {
-        trace(`Using audio device: ${audioTracks[0].label}.`);
-    }
+    trace('Starting call.')
 
     connection.addEventListener('icecandidate', handleConnection);
     connection.addEventListener('iceconnectionstatechange', handleConnectionChange);
@@ -151,7 +130,10 @@ function callAction() {
     trace('Added local stream to connection.');
 
     trace('connection createOffer start.');
-    connection.createOffer(offerOptions)
+    connection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+    })
         .then(createdOffer)
         .catch(setSessionDescriptionError);
 }
@@ -163,22 +145,7 @@ function handleConnection(event) {
     }
 }
 
-const sendICE = throttle(SendCandidate, 500);
-
-function SendCandidate(iceCandidate) {
-    sendMessage('icecandidate', iceCandidate);
-}
-
-// Logs that the connection succeeded.
-function handleConnectionSuccess(peerConnection) {
-    trace(`${getPeerName(peerConnection)} addIceCandidate success.`);
-};
-
-// Logs that the connection failed.
-function handleConnectionFailure(peerConnection, error) {
-    trace(`${getPeerName(peerConnection)} failed to add ICE Candidate:\n` +
-        `${error.toString()}.`);
-}
+const sendICE = throttle((iceCandidate) => sendMessage('icecandidate', iceCandidate), 500);
 
 // Logs changes to the connection state.
 function handleConnectionChange(event) {
@@ -225,14 +192,6 @@ function setRemoteDescriptionSuccess(peerConnection) {
 // Logs error when setting session description fails.
 function setSessionDescriptionError(error) {
     trace(`Failed to create session description: ${error.toString()}.`);
-}
-
-// Sets the MediaStream as the video element src.
-function gotLocalMediaStream(mediaStream) {
-    localVideo.srcObject = mediaStream;
-    localStream = mediaStream;
-    trace('Received local stream.');
-    callButton.disabled = false;  // Enable call button.
 }
 
 function throttle(func, ms) {
@@ -296,5 +255,3 @@ ch.addEventListener('bufferedamountlow', console.warn);
 function sendMessage(type, data) {
     socket.send(JSON.stringify({ type, data }))
 }
-
-const trace = console.log;
