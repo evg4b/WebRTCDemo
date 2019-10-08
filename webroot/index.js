@@ -141,11 +141,9 @@ function callAction() {
 function handleConnection(event) {
     const iceCandidate = event.candidate;
     if (iceCandidate) {
-        sendICE(iceCandidate);
+        sendMessage('icecandidate', iceCandidate)
     }
 }
-
-const sendICE = throttle((iceCandidate) => sendMessage('icecandidate', iceCandidate), 500);
 
 // Logs changes to the connection state.
 function handleConnectionChange(event) {
@@ -194,44 +192,10 @@ function setSessionDescriptionError(error) {
     trace(`Failed to create session description: ${error.toString()}.`);
 }
 
-function throttle(func, ms) {
-
-    let isThrottled = false,
-        savedArgs = [],
-        savedThis;
-
-    function wrapper() {
-        savedArgs.push(arguments[0]);
-        if (isThrottled) { // (2)
-            savedThis = this;
-            return;
-        }
-
-        func.apply(this, savedArgs); // (1)
-        savedArgs = []
-        isThrottled = true;
-
-        setTimeout(function () {
-            isThrottled = false; // (3)
-            if (savedArgs.length > 0) {
-                wrapper.apply(savedThis, savedArgs);
-                savedArgs = [];
-                savedThis = null;
-            }
-        }, ms);
-    }
-
-    return wrapper;
-}
-
-
-
 connectionState.innerText = connection.connectionState;
 connection.onconnectionstatechange = () => {
     connectionState.innerText = connection.connectionState
 };
-
-
 
 connection.addEventListener('addstream', gotRemoteMediaStream);;
 
