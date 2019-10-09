@@ -1,39 +1,35 @@
-/* eslint-disable no-use-before-define */
-/* eslint-disable no-console */
-/* eslint-disable default-case */
 // html elements
 const localSdp = document.getElementById('localSdp');
 const remoteSdp = document.getElementById('remoteSdp');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
 const connectionState = document.getElementById('connection-state');
+const iceConnectionState = document.getElementById('ice-connection-state');
 const callButton = document.getElementById('callButton');
 const hangupButton = document.getElementById('hangupButton');
 
 // define helper functions
-const trace = console.log;
-
 function sendMessage(type, data) {
   socket.send(JSON.stringify({ type, data }));
+  console.log('Sended message to remote ')
 }
 
-// web sockets connections
+// WebSocket connection
 const { host } = document.location;
 const socket = new WebSocket(`ws://${host}/ws`);
 
 socket.addEventListener('open', () => {
-  trace(`WebSocket connection was opened with ${host}`);
+  console.log(`WebSocket connection was opened with ${host}`);
 });
 
 socket.addEventListener('error', (event) => {
-  trace(`WebSocket connection with ${host} returns error`);
-  console.error(event);
+  console.error(`WebSocket connection returns error`, event);
 });
 
 socket.addEventListener('message', (event) => {
   try {
     const { type, data } = JSON.parse(event.data);
-    trace(`From web socket was given '${type}' message: ${data}`);
+    console.log(`From web socket was given '${type}' message:`, data);
     switch (type) {
       case 'offer':
         return receiveOffer(data);
@@ -43,12 +39,11 @@ socket.addEventListener('message', (event) => {
         return receiveIceCandidate(data);
     }
   } catch (error) {
-    trace(`Error parse ${event.data}`);
-    console.error(error);
+    console.error(`Error parse`, event.data, error);
   }
 });
 
-// create connection with
+// WebRTC connection
 const connection = new RTCPeerConnection({
   iceServers: [
     { url: 'stun:stun.l.google.com:19302' },
@@ -56,33 +51,48 @@ const connection = new RTCPeerConnection({
     { url: 'stun:stun2.l.google.com:19302' },
     { url: 'stun:stun3.l.google.com:19302' },
     { url: 'stun:stun4.l.google.com:19302' },
-    { url: 'stun:stun01.sipphone.com' },
-    { url: 'stun:stun.ekiga.net' },
-    { url: 'stun:stun.fwdnet.net' },
-    { url: 'stun:stun.ideasip.com' },
-    { url: 'stun:stun.iptel.org' },
-    { url: 'stun:stun.rixtelecom.se' },
-    { url: 'stun:stun.schlund.de' },
-    { url: 'stun:stunserver.org' },
-    { url: 'stun:stun.softjoys.com' },
-    { url: 'stun:stun.voiparound.com' },
-    { url: 'stun:stun.voipbuster.com' },
-    { url: 'stun:stun.voipstunt.com' },
-    { url: 'stun:stun.voxgratia.org' },
-    { url: 'stun:stun.xten.com' },
   ],
 });
 
-const receiveOffer = async (offer) => {
-  connection.setRemoteDescription(offer);
-  const answer = await connection.createAnswer();
-  connection.setLocalDescription(answer);
-  sendMessage('answer', answer);
+connection.addEventListener('icecandidate', (event) => {
+  const iceCandidate = event.candidate;
+  if (iceCandidate) {
+    console.log('Founded new ICE candidate', iceCandidate);
+    sendMessage('icecandidate', iceCandidate);
+  }
+});
 
-  remoteSdp.value = offer.sdp;
-  localSdp.innerText = answer.sdp;
-  if (!callButton.disabled) {
-    callButton.innerText = 'Answer';
+connection.addEventListener('iceconnectionstatechange', (event) => {
+  const peerConnection = event.target;
+  console.log(`ICE state changed to: ${peerConnection.iceConnectionState}.`);
+  iceConnectionState.innerText = peerConnection.iceConnectionState;
+});
+
+connection.addEventListener('connectionstatechange', (event) => {
+  const peerConnection = event.target;
+  console.log(`RTC state changed to: ${peerConnection.connectionState}.`);
+  connectionState.innerText = connection.connectionState;
+});
+
+connection.addEventListener('addstream', (event) => {
+  remoteVideo.srcObject = event.stream;
+  console.log('Connection received remote stream');
+});
+
+const receiveOffer = async (offer) => {
+  try {
+    connection.setRemoteDescription(offer);
+    const answer = await connection.createAnswer();
+    connection.setLocalDescription(answer);
+    sendMessage('answer', answer);
+
+    remoteSdp.value = offer.sdp;
+    localSdp.innerText = answer.sdp;
+    if (!callButton.disabled) {
+      callButton.innerText = 'Answer';
+    }
+  } catch (error) {
+    console.error('Failed reviewing offer', error);
   }
 };
 
@@ -94,118 +104,57 @@ const receiveAnswer = async (answer) => {
 const receiveIceCandidate = async (iceCandidate) => {
   const newIceCandidate = new RTCIceCandidate(iceCandidate);
   await connection.addIceCandidate(newIceCandidate);
-  trace('Added ICE candidate:\n' + `${newIceCandidate.candidate}.`);
+  console.log('Added ICE candidate:\n' + `${newIceCandidate.candidate}.`);
 };
 
-callButton.addEventListener('click', callAction);
+callButton.addEventListener('click', async () => {
+  callButton.disabled = true;
+  hangupButton.disabled = false;
+
+  try {
+    console.log('Starting call');
+    if (localStream) {
+      console.log('Added local stream to connection');
+      connection.addStream(localStream);
+    }
+
+    const offer = await connection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    });
+    console.log('Created offer:', offer);
+
+    localSdp.innerText = offer.sdp;
+    sendMessage('offer', offer);
+
+    await connection.setLocalDescription(offer);
+    console.log('Set local description as offer', offer);
+  } catch (error) {
+    console.error(error);
+  }
+});
 
 let localStream = null;
 let remoteStream = null;
 (async () => {
+  connectionState.innerText = connection.connectionState;
   hangupButton.disabled = true;
   try {
     if (navigator.mediaDevices) {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localVideo.srcObject = localStream;
-      trace('Received local stream.');
+      console.log('Received local stream');
       const videoTracks = localStream.getVideoTracks();
       const audioTracks = localStream.getAudioTracks();
       if (videoTracks.length > 0) {
-        trace(`Using video device: ${videoTracks[0].label}.`);
+        console.log(`Using video device: ${videoTracks[0].label}.`);
       }
       if (audioTracks.length > 0) {
-        trace(`Using audio device: ${audioTracks[0].label}.`);
+        console.log(`Using audio device: ${audioTracks[0].label}.`);
       }
       callButton.disabled = false;
     }
   } catch (error) {
-    trace('Reject local stream.');
+    console.log('Reject local stream', error);
   }
 })();
-
-// Handles call button action: creates peer connection.
-function callAction() {
-  callButton.disabled = true;
-  hangupButton.disabled = false;
-
-  trace('Starting call.');
-
-  connection.addEventListener('icecandidate', handleConnection);
-  connection.addEventListener('iceconnectionstatechange', handleConnectionChange);
-
-
-  if (localStream) {
-    connection.addStream(localStream);
-  }
-
-  trace('Added local stream to connection.');
-
-  trace('connection createOffer start.');
-  connection.createOffer({
-    offerToReceiveAudio: true,
-    offerToReceiveVideo: true,
-  })
-    .then(createdOffer)
-    .catch(setSessionDescriptionError);
-}
-
-function handleConnection(event) {
-  const iceCandidate = event.candidate;
-  if (iceCandidate) {
-    sendMessage('icecandidate', iceCandidate);
-  }
-}
-
-// Logs changes to the connection state.
-function handleConnectionChange(event) {
-  const peerConnection = event.target;
-  console.log('ICE state change event: ', event);
-  trace(`${getPeerName(peerConnection)} ICE state: `
-    + `${peerConnection.iceConnectionState}.`);
-}
-
-const getPeerName = () => 'onnection';
-
-function createdOffer(description) {
-  trace(`Offer from connection:\n${description.sdp}`);
-
-  localSdp.innerText = description.sdp;
-  sendMessage('offer', description);
-
-  trace('connection setLocalDescription start.');
-  connection.setLocalDescription(description)
-    .then(() => {
-      setLocalDescriptionSuccess(connection);
-    }).catch(setSessionDescriptionError);
-}
-
-// Logs success when setting session description.
-function setDescriptionSuccess(peerConnection, functionName) {
-  trace(`${peerConnection} ${functionName} complete.`);
-}
-
-// Logs success when localDescription is set.
-function setLocalDescriptionSuccess(peerConnection) {
-  setDescriptionSuccess(peerConnection, 'setLocalDescription');
-}
-
-// Logs error when setting session description fails.
-function setSessionDescriptionError(error) {
-  trace(`Failed to create session description: ${error.toString()}.`);
-}
-
-connectionState.innerText = connection.connectionState;
-connection.onconnectionstatechange = () => {
-  connectionState.innerText = connection.connectionState;
-};
-
-connection.addEventListener('addstream', gotRemoteMediaStream);
-
-function gotRemoteMediaStream(event) {
-  const mediaStream = event.stream;
-  remoteVideo.srcObject = mediaStream;
-  remoteStream = mediaStream;
-  trace('Remote peer connection received remote stream.');
-}
-
-
