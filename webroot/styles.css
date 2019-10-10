@@ -2,6 +2,7 @@ header {
     margin-top: 1em;
 }
 
+#ice-connection-state,
 #connection-state {
     font-weight: bold;
 }
